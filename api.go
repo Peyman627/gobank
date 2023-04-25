@@ -99,7 +99,7 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 type APIFunc func(w http.ResponseWriter, r *http.Request) error
 
 type APIError struct {
-	Error string
+	Error string `json:"error"`
 }
 
 func makeHTTPHandleFunc(f APIFunc) http.HandlerFunc {
