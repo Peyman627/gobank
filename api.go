@@ -54,12 +54,7 @@ func (s *APIServer) handleGetAccounts(w http.ResponseWriter, r *http.Request) er
 }
 
 func (s *APIServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request) error {
-	idStr := mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return fmt.Errorf("invalid id given %s", idStr)
-	}
-
+	id, err := getID(r)
 	account, err := s.store.GetAccountByID(id)
 	if err != nil {
 		return err
@@ -83,7 +78,13 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	id, err := getID(r)
+	err = s.store.DeleteAccount(id)
+	if err != nil {
+		return err
+	}
+
+	return fmt.Errorf("account id: %s not found", idStr)
 }
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
@@ -111,4 +112,14 @@ func makeHTTPHandleFunc(f APIFunc) http.HandlerFunc {
 			}
 		}
 	}
+}
+
+func getID(r *http.Request) (int, error) {
+	idStr := mux.Vars(r)["id"]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return id, fmt.Errorf("invalid id given %s", idStr)
+	}
+
+	return id, nil
 }

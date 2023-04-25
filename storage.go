@@ -68,7 +68,8 @@ func (s *PostgresStore) CreateAccount(account *Account) error {
 }
 
 func (s *PostgresStore) DeleteAccount(id int) error {
-	return nil
+	_, err := s.db.Query("DELETE FROM account WHERE id = $1", id)
+	return err
 }
 
 func (s *PostgresStore) UpdateAccount(account *Account) error {
