@@ -24,8 +24,8 @@ func NewAPIServer(listenAddr string, store Storage) *APIServer {
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/accounts", makeHTTPHandleFunc(s.handleAccount))
-	router.HandleFunc("/accounts/{id}", makeHTTPHandleFunc(s.handleGetAccountByID))
+	router.HandleFunc("/accounts", makeHTTPHandleFunc(s.handleAccounts))
+	router.HandleFunc("/accounts/{id}", makeHTTPHandleFunc(s.handleAccount))
 
 	log.Println("JSON API server running on: ", s.listenAddr)
 	err := http.ListenAndServe(s.listenAddr, router)
@@ -34,11 +34,18 @@ func (s *APIServer) Run() {
 	}
 }
 
-func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) handleAccounts(w http.ResponseWriter, r *http.Request) error {
 	if r.Method == "GET" {
 		return s.handleGetAccounts(w, r)
 	} else if r.Method == "POST" {
 		return s.handleCreateAccount(w, r)
+	}
+	return fmt.Errorf("method now allowed %s", r.Method)
+}
+
+func (s *APIServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
+	if r.Method == "GET" {
+		return s.handleGetAccountByID(w, r)
 	} else if r.Method == "DELETE" {
 		return s.handleDeleteAccount(w, r)
 	}
@@ -84,7 +91,7 @@ func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	return fmt.Errorf("account id: %s not found", idStr)
+	return WriteJSON(w, http.StatusOK, map[string]int{"deleted": id})
 }
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
