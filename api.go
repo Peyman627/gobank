@@ -26,6 +26,7 @@ func NewAPIServer(listenAddr string, store Storage) *APIServer {
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
 
+	router.HandleFunc("/login", makeHTTPHandleFunc(s.handleLogin))
 	router.HandleFunc("/accounts", makeHTTPHandleFunc(s.handleAccounts))
 	router.HandleFunc("/accounts/{id}", withJWTAuth(makeHTTPHandleFunc(s.handleAccount), s.store))
 	router.HandleFunc("/transfer", makeHTTPHandleFunc(s.handleTransfer))
@@ -35,6 +36,34 @@ func (s *APIServer) Run() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("method not allowed %s", r.Method)
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
+
+	acc, err := s.store.GetAccountByNumber(int(req.Number))
+	if err != nil {
+		return err
+	}
+
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	if !acc.ValidPassword(req.Password) {
+		return WriteJSON(w, http.StatusUnauthorized, APIError{Error: "not authenticated"})
+	}
+
+	resp := LoginResponse{Token: token, Number: acc.Number}
+	return WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *APIServer) handleAccounts(w http.ResponseWriter, r *http.Request) error {
@@ -74,12 +103,15 @@ func (s *APIServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) error {
-	createAccountReq := new(CreateAccountRequest)
-	if err := json.NewDecoder(r.Body).Decode(createAccountReq); err != nil {
+	accReq := new(CreateAccountRequest)
+	if err := json.NewDecoder(r.Body).Decode(accReq); err != nil {
 		return err
 	}
 
-	account := NewAccount(createAccountReq.FirstName, createAccountReq.LastName)
+	account, err := NewAccount(accReq.FirstName, accReq.LastName, accReq.Password)
+	if err != nil {
+		return err
+	}
 	if err := s.store.CreateAccount(account); err != nil {
 		return err
 	}

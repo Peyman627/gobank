@@ -12,6 +12,7 @@ type Storage interface {
 	UpdateAccount(*Account) error
 	GetAccounts() ([]*Account, error)
 	GetAccountByID(int) (*Account, error)
+	GetAccountByNumber(int) (*Account, error)
 }
 
 type PostgresStore struct {
@@ -44,6 +45,7 @@ func (s *PostgresStore) createAccountTable() error {
         first_name VARCHAR(50),
     	last_name VARCHAR(50),
     	number SERIAL,
+    	encrypted_password VARCHAR(128),
     	balance SERIAL,
     	created_at TIMESTAMP
     )`
@@ -52,14 +54,14 @@ func (s *PostgresStore) createAccountTable() error {
 	return err
 }
 
-func (s *PostgresStore) CreateAccount(account *Account) error {
+func (s *PostgresStore) CreateAccount(acc *Account) error {
 	query := `
 	INSERT INTO account
-	(first_name, last_name, number, balance, created_at)
+	(first_name, last_name, number, encrypted_password, balance, created_at)
 	VALUES 
-	($1, $2, $3, $4, $5)
+	($1, $2, $3, $4, $5, $6)
 	`
-	_, err := s.db.Query(query, account.FirstName, account.LastName, account.Number, account.Balance, account.CreatedAt)
+	_, err := s.db.Query(query, acc.FirstName, acc.LastName, acc.Number, acc.EncryptedPassword, acc.Balance, acc.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -74,6 +76,18 @@ func (s *PostgresStore) DeleteAccount(id int) error {
 
 func (s *PostgresStore) UpdateAccount(account *Account) error {
 	return nil
+}
+
+func (s *PostgresStore) GetAccountByNumber(number int) (*Account, error) {
+	rows, err := s.db.Query("SELECT * FROM account WHERE number = $1", number)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		return scanIntoAccount(rows)
+	}
+
+	return nil, fmt.Errorf("account number %d not found", number)
 }
 
 func (s *PostgresStore) GetAccountByID(id int) (*Account, error) {
@@ -110,10 +124,10 @@ func (s *PostgresStore) GetAccounts() ([]*Account, error) {
 }
 
 func scanIntoAccount(rows *sql.Rows) (*Account, error) {
-	account := &Account{}
-	err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreatedAt)
+	acc := &Account{}
+	err := rows.Scan(&acc.ID, &acc.FirstName, &acc.LastName, &acc.Number, &acc.EncryptedPassword, &acc.Balance, &acc.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return account, nil
+	return acc, nil
 }
